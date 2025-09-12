@@ -79,10 +79,20 @@
 
 .btn .icon {
   margin-right: 12px;
-  fill: currentColor; /* Makes the Apple/Facebook icons white */
-  width: 15px;
-  height: 15px;
+  fill: currentColor; /* Icons inherit button text color */
+  width: 28px;  /* Increased from 15px */
+  height: 28px; /* Increased from 15px */
 }
+
+/* Optional: fine-tune Apple and Mail separately if needed */
+.icon-apple,
+.icon-mail {
+  width: 30px;
+  height: 30px;
+}
+
+
+
 
 .social-logins {
   width: 100%;

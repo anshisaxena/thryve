@@ -1,11 +1,11 @@
- <div class="flex items-center justify-center min-h-screen container">
-      <!-- Main card container -->
-      <div class="tandem-card">
+<!-- <div class="flex items-center justify-center min-h-screen container"> -->
+<!-- Main card container -->
+<!-- <div class="tandem-card">
         <div>
-          <!-- Logo and title -->
+          Logo and title
           <h1 class="tandem-logo italic">TANDEM</h1>
 
-          <!-- Email input section -->
+          Email input section
           <div class="mt-8 text-center">
             <h2 class="text-xl font-bold mb-6">Enter your work email address</h2>
             <div class="relative w-full">
@@ -15,9 +15,26 @@
           </div>
         </div>
 
-        <!-- Continue button -->
+        Continue button
         <button class="w-full py-3 bg-white text-black font-semibold rounded-full shadow-md hover:bg-gray-200 transition-colors duration-300" (click)="handleContinue()">
           Continue
         </button>
       </div>
-    </div>
+    </div> */ -->
+
+<div class="container">
+  <div class="center-blob"></div>
+   <div class="blob blob1"></div>
+  <div class="blob blob2"></div>
+  <div class="blob blob3"></div>
+  <div class="blob blob4"></div>
+  <div class="blob blob5"></div>
+  <div class="card">
+    <h2 class="logo">TANDEM</h2>
+    <p class="subtitle">Enter your work email address</p>
+
+    <input type="email" [(ngModel)]="email" placeholder="Email" class="input" />
+
+    <button class="btn" (click)="submitEmail()">Continue</button>
+  </div>
+</div>

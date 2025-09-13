@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { NgIf } from '@angular/common';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-login',
@@ -11,6 +12,9 @@ import { NgIf } from '@angular/common';
 export class Login {
   @Input() title?: string;
   showPasskeyQRCode = false;
+
+  // ✅ inject Router in constructor
+  constructor(private router: Router) {}
 
   loginWithPasskey() {
     console.log("Passkey login clicked");
@@ -42,5 +46,6 @@ closeAppleBiometricPopup() {
   loginWithEmail() {
     console.log("Email login clicked");
     // TODO: Navigate to email login form
+    this.router.navigate(['/email']);
   }
 }

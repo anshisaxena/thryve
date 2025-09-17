@@ -76,8 +76,13 @@ function getLocalIP() {
 
 // ---- Generate QR Session ----
 app.post('/api/passkey/session', async (req, res) => {
+  const userId = req.body.userId;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'Missing userId in request body' });
+  }
+
   const sessionId = uuidv4();
-  const userId = req.body.userId || uuidv4();
 
   sessions[sessionId] = {
     status: 'pending',
@@ -134,15 +139,20 @@ app.post('/api/passkey/confirm/:sessionId', async (req, res) => {
 
   try {
     const existingUser = await User.findOne({ userId });
-    if (!existingUser) await User.create({ userId });
-    console.log(`✅ User saved: ${userId}`);
+    if (!existingUser) {
+      await User.create({ userId });
+      console.log(`✅ User saved: ${userId}`);
+      return res.json({ success: true, redirectTo: '/email' });  // <-- UPDATED HERE
+    } else {
+      console.log(`✅ Existing user confirmed: ${userId}`);
+      return res.json({ success: true, redirectTo: '/dashboard' });  // <-- UPDATED HERE
+    }
   } catch (err) {
     console.error('❌ MongoDB user save error:', err);
     return res.status(500).json({ error: 'Database error' });
   }
 
-  console.log(`✅ Confirmed POST: ${req.params.sessionId} -> ${userId}`);
-  res.json({ success: true });
+  // No other changes below this line
 });
 
 // ---- Confirm Session (GET via QR) ----
@@ -152,29 +162,40 @@ app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
   if (session.status !== 'pending') return res.status(400).send('Already confirmed or expired');
 
   const userId = req.query.userId;
-  if (userId) {
-    session.status = 'authenticated';
-    session.userId = userId;
+  if (!userId) return res.status(400).send('Missing userId');
 
-    try {
-      const existingUser = await User.findOne({ userId });
-      if (!existingUser) await User.create({ userId });
-      console.log(`✅ User saved via QR: ${userId}`);
-    } catch (err) {
-      console.error('❌ MongoDB save error:', err);
-      return res.status(500).send('Database error');
+  session.status = 'authenticated';
+  session.userId = userId;
+
+  try {
+    const existingUser = await User.findOne({ userId });
+    if (!existingUser) {
+      await User.create({ userId });
+      console.log(`✅ New user registered: ${userId}`);
+      // Redirect new users to registration page
+      return res.redirect('https://b8e45da34abf.ngrok-free.app/email');
+    } else {
+      console.log(`✅ Existing user logged in: ${userId}`);
+      // Redirect existing users to dashboard
+      return res.redirect('https://b8e45da34abf.ngrok-free.app/dashboard');
     }
-
-    return res.redirect('https://b8e45da34abf.ngrok-free.app/email');
+  } catch (err) {
+    console.error('❌ MongoDB save error:', err);
+    return res.status(500).send('Database error');
   }
+});
 
-  res.send(`
-    <h2>Confirm Session</h2>
-    <form method="POST" action="/api/passkey/confirm/${req.params.sessionId}">
-      <label>User ID: <input name="userId" required /></label>
-      <button type="submit">Confirm</button>
-    </form>
-  `);
+// ---- Check if user exists endpoint (NEW) ----
+app.get('/api/users/exists/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    const user = await User.findOne({ userId });
+    res.json({ exists: !!user });
+  } catch (err) {
+    console.error('Error checking user existence:', err);
+    res.status(500).json({ exists: false });
+  }
 });
 
 // ---- Root ----

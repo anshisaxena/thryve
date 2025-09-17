@@ -47,35 +47,28 @@
   </div>
 </div>
 
-<!-- ✅ Updated QR Code Modal -->
-<!-- Updated QR Code Modal -->
+<!-- Passkey QR Popup -->
 <div *ngIf="showPasskeyQRCode" class="popup-overlay" (click)="closePasskeyPopup()">
   <div class="popup-content qr-style" (click)="$event.stopPropagation()">
     <h3>Use a passkey from another device?</h3>
-
-    <p>
-      Scan this QR code with the device that has the passkey you want to use for 
-      <strong>www.digitalfiles-test.com</strong>
-    </p>
-
-    <div class="qr-image-wrapper">
-      <img 
-        src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://www.digitalfiles-test.com" 
-        alt="Passkey QR Code"
-      />
+    <p>Scan this QR code with your trusted mobile app to log in.</p>
+    <div class="qr-image-wrapper" *ngIf="qrImage">
+      <img [src]="qrImage" alt="Passkey QR Code" />
     </div>
-
-    <p class="usb-msg">
-      If your passkey for www.digitalfiles-test.com is on a USB security key, insert and touch it now.
-    </p>
-
     <div class="btn-row">
       <button class="btn-cancel" (click)="closePasskeyPopup()">Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- Existing QR Code Modal here -->
+<!-- Account Created Popup -->
+<div *ngIf="showAccountCreatedPopup" class="popup-overlay">
+  <div class="popup-content">
+    <h3>Account Created</h3>
+    <p>Your account was successfully created using a passkey.</p>
+    <button class="btn btn-dark" (click)="closeAccountCreated(); router.navigate(['/dashboard'])">Continue</button>
+  </div>
+</div>
 
 <!-- Apple ID Biometric Modal -->
 <div *ngIf="showAppleBiometricModal" class="popup-overlay" (click)="closeAppleBiometricPopup()">
@@ -90,19 +83,18 @@
     <a class="apple-link" href="#">Use a different Apple ID</a>
 
     <div class="touch-id-section">
-  <img
-  src="/assets/fingerprint.jpeg"
-  alt="Touch ID"
-  class="touch-id-icon"
-/>
-
-  <div class="touch-id-text">Continue with Touch ID</div>
-</div>
-
+      <img
+        src="/assets/fingerprint.jpeg"
+        alt="Touch ID"
+        class="touch-id-icon"
+      />
+      <div class="touch-id-text">Continue with Touch ID</div>
+    </div>
 
     <button class="cancel-btn" (click)="closeAppleBiometricPopup()">Cancel</button>
   </div>
 </div>
+
 <!-- Google Login Modal -->
 <div *ngIf="showGoogleLoginModal" class="popup-overlay" (click)="closeGoogleLoginModal()">
   <div class="popup-content" (click)="$event.stopPropagation()">

@@ -27,8 +27,8 @@ export class Login implements OnDestroy {
   pollingSub: Subscription | null = null;
 
   // Backend URLs
-  backendBase = 'https://9dc88d2115df.ngrok-free.app';
-  tunnelUrl = 'https://9dc88d2115df.ngrok-free.app';
+  backendBase = 'https://b8e45da34abf.ngrok-free.app';
+  tunnelUrl = 'https://b8e45da34abf.ngrok-free.app';
 
   constructor(
     public router: Router,
@@ -68,7 +68,7 @@ export class Login implements OnDestroy {
   }
 
   /** Poll backend every 2s for session status */
-/** Poll backend every 2s for session status */
+  /** Poll backend every 2s for session status */
 startPolling() {
   if (!this.sessionId) return;
 
@@ -76,47 +76,59 @@ startPolling() {
   this.pollingSub = interval(2000).subscribe(() => {
     this.http.get(
       `${this.backendBase}/api/passkey/status/${this.sessionId}`,
-      { responseType: 'text' } // We want raw text first
+      { observe: 'response', responseType: 'text', withCredentials: true }
     ).subscribe({
-      next: (respText) => {
+      next: (resp) => {
+        const contentType = resp.headers.get('Content-Type') || '';
+        const respText = resp.body ?? '';
+
+        if (contentType.includes('text/html') || respText.trim().startsWith('<')) {
+          console.error('❌ Polling response is HTML, not JSON:', respText);
+          this.pollingSub?.unsubscribe();
+          alert('Unexpected HTML response from server during polling. Please check backend logs and ngrok tunnel.');
+          return;
+        }
+
         try {
-          // Defensive: if response looks like HTML, throw error to catch
-          if (respText.trim().startsWith('<')) {
-            throw new Error('Response is HTML, not JSON');
-          }
-          const resp = JSON.parse(respText);
-          console.log('📡 Polling status:', resp.status);
-          if (resp.status === 'authenticated') {
+          const respJson = JSON.parse(respText);
+          console.log('📡 Polling status:', respJson.status);
+
+          if (respJson.status === 'authenticated') {
             this.pollingSub?.unsubscribe();
             this.showPasskeyQRCode = false;
             this.onAuthenticated();
-          } else if (resp.status === 'expired') {
+          } else if (respJson.status === 'expired') {
             this.pollingSub?.unsubscribe();
             this.showPasskeyQRCode = false;
             alert('QR expired. Please try again.');
           }
         } catch (err) {
-          console.error('❌ Polling response is not valid JSON:', err, respText);
+          console.error('❌ Error parsing polling JSON response:', err, respText);
           this.pollingSub?.unsubscribe();
-          alert('Unexpected response from server during polling. Please check backend logs.');
+          alert('Invalid JSON response from server during polling. Please check backend.');
         }
       },
       error: (err) => {
         console.error('❌ Polling error', err);
         this.pollingSub?.unsubscribe();
+        alert('Error during polling. Please check backend and network.');
       }
     });
   });
 }
 
-
-      
   /** Session confirmed */
   onAuthenticated() {
     console.log('✅ Session authenticated!');
 
-    localStorage.setItem('showAccountCreated', 'true');
-    this.router.navigate(['/email']);
+    this.showPasskeyQRCode = false;
+    this.showAccountCreatedPopup = true;
+
+    // Auto-close popup & redirect to /email
+    setTimeout(() => {
+      this.showAccountCreatedPopup = false;
+      this.router.navigate(['/email']);
+    }, 2000);
   }
 
   /** Manual session confirm for testing */
@@ -176,11 +188,6 @@ startPolling() {
   /** Email login */
   loginWithEmail() {
     this.router.navigate(['/email']);
-  }
-
-  /** Navigate to dashboard */
-  navigateToDashboard() {
-    this.router.navigate(['/dashboard']);
   }
 
   /** Cleanup */

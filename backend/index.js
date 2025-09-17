@@ -8,23 +8,19 @@ import mongoose from 'mongoose';
 const app = express();
 
 // ---- CORS Setup ----
-// Allow localhost:4200 (Angular dev server) and your ngrok URL
 const allowedOrigins = [
-  'http://localhost:4200',                  // Angular dev server
-  'https://9dc88d2115df.ngrok-free.app'    // Your ngrok URL
+  'http://localhost:4200',
+  'https://b8e45da34abf.ngrok-free.app'
 ];
 
 app.use(cors({
-  origin: function(origin, callback) {
-    // allow requests with no origin like mobile apps or curl/postman
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true);
-
     if (allowedOrigins.indexOf(origin) === -1) {
       const msg = `The CORS policy for this site does not allow access from origin: ${origin}`;
+      console.error(msg);
       return callback(new Error(msg), false);
     }
-
-    // Dynamically set the allowed origin to the request's origin
     return callback(null, origin);
   },
   methods: ['GET', 'POST', 'OPTIONS'],
@@ -35,8 +31,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 4000;
-
-// ---- In-memory session store ----
 const sessions = {};
 
 // ---- MongoDB Setup ----
@@ -57,7 +51,7 @@ const User = mongoose.model('User', userSchema);
 // ---- Cleanup expired sessions ----
 setInterval(() => {
   const now = Date.now();
-  const MAX_AGE = 5 * 60 * 1000; // 5 minutes
+  const MAX_AGE = 5 * 60 * 1000;
   for (const id in sessions) {
     const session = sessions[id];
     if (now - session.createdAt > MAX_AGE) {
@@ -67,15 +61,17 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
-// ---- Get local IP ----
+// ---- Get Local IP (never fallback to localhost) ----
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
   for (const name in interfaces) {
     for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
     }
   }
-  return 'localhost';
+  throw new Error('Unable to determine local IP address');
 }
 
 // ---- Generate QR Session ----
@@ -83,36 +79,44 @@ app.post('/api/passkey/session', async (req, res) => {
   const sessionId = uuidv4();
   const userId = req.body.userId || uuidv4();
 
-  sessions[sessionId] = { status: 'pending', createdAt: Date.now(), userId: null };
-
-  const baseUrl = req.body.baseUrl || `http://${getLocalIP()}:${PORT}`;
-  const confirmUrl = `${baseUrl}/api/passkey/confirm/${sessionId}?userId=${encodeURIComponent(userId)}`;
+  sessions[sessionId] = {
+    status: 'pending',
+    createdAt: Date.now(),
+    userId: null
+  };
 
   try {
+    const ip = getLocalIP();
+    const rawBaseUrl = req.body.baseUrl || `http://${ip}:${PORT}`;
+    const baseUrl = rawBaseUrl.trim();
+    const confirmUrl = `${baseUrl}/api/passkey/confirm/${sessionId}?userId=${encodeURIComponent(userId)}`;
+
     const qrImage = await qr.toDataURL(confirmUrl);
+    console.log('✅ Generated confirmUrl:', confirmUrl);
+
     res.json({ sessionId, qrImage, confirmUrl, userId });
   } catch (err) {
-    console.error('QR generation error', err);
+    console.error('❌ Error generating QR code or IP:', err);
     res.status(500).json({ error: 'Could not generate QR' });
   }
 });
 
 // ---- Poll Session Status ----
 app.get('/api/passkey/status/:sessionId', (req, res) => {
-  console.log('Polling status for session:', req.params.sessionId);  // <-- added log
+  const sessionId = req.params.sessionId;
+  console.log(`Polling status for session: ${sessionId}`);
 
-  const session = sessions[req.params.sessionId];
+  const session = sessions[sessionId];
   if (!session) {
-    console.log('Session not found:', req.params.sessionId);  // <-- added log
+    console.warn(`Session not found for ID: ${sessionId}`);
     return res.status(404).json({ status: 'not_found' });
   }
 
   if (Date.now() - session.createdAt > 5 * 60 * 1000 && session.status === 'pending') {
     session.status = 'expired';
+    console.log(`Session ${sessionId} expired.`);
   }
 
-  // Explicitly set JSON Content-Type to fix frontend parsing issues
-  res.setHeader('Content-Type', 'application/json');
   res.status(200).json({ status: session.status });
 });
 
@@ -161,11 +165,9 @@ app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
       return res.status(500).send('Database error');
     }
 
-    // ✅ REDIRECT TO FRONTEND EMAIL PAGE
-    return res.redirect('https://9dc88d2115df.ngrok-free.app/email');
+    return res.redirect('https://b8e45da34abf.ngrok-free.app/email');
   }
 
-  // Fallback form
   res.send(`
     <h2>Confirm Session</h2>
     <form method="POST" action="/api/passkey/confirm/${req.params.sessionId}">
@@ -176,7 +178,17 @@ app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
 });
 
 // ---- Root ----
-app.get('/', (req, res) => res.send('✅ Backend is running. Use /api/passkey/... endpoints.'));
+app.get('/', (req, res) =>
+  res.send('✅ Backend is running. Use /api/passkey/... endpoints.')
+);
+
+// ---- 404 Catch-All ----
+app.use((req, res) => {
+  console.warn(`Unhandled route: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Not Found' });
+});
 
 // ---- Start server ----
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running at http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () =>
+  console.log(`🚀 Server running at http://${getLocalIP()}:${PORT}`)
+);

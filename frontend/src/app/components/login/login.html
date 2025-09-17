@@ -61,12 +61,11 @@
   </div>
 </div>
 
-<!-- Account Created Popup -->
+<!-- ✅ Account Created Popup (auto redirect) -->
 <div *ngIf="showAccountCreatedPopup" class="popup-overlay">
-  <div class="popup-content">
-    <h3>Account Created</h3>
-    <p>Your account was successfully created using a passkey.</p>
-    <button class="btn btn-dark" (click)="closeAccountCreated(); router.navigate(['/dashboard'])">Continue</button>
+  <div class="popup-content success">
+    <h3>✅ Account Created</h3>
+    <p>You’ll be redirected shortly...</p>
   </div>
 </div>
 

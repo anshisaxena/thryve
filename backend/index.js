@@ -10,7 +10,7 @@ const app = express();
 // ---- CORS Setup ----
 const allowedOrigins = [
   'http://localhost:4200',
-  'https://b8e45da34abf.ngrok-free.app'
+  'https://f5deed31b429.ngrok-free.app'
 ];
 
 app.use(cors({
@@ -173,11 +173,11 @@ app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
       await User.create({ userId });
       console.log(`✅ New user registered: ${userId}`);
       // Redirect new users to registration page
-      return res.redirect('https://b8e45da34abf.ngrok-free.app/email');
+      return res.redirect('https://9db7fac664ca.ngrok-free.app/email');
     } else {
       console.log(`✅ Existing user logged in: ${userId}`);
       // Redirect existing users to dashboard
-      return res.redirect('https://b8e45da34abf.ngrok-free.app/dashboard');
+      return res.redirect('https://9db7fac664ca.ngrok-free.app/dashboard');
     }
   } catch (err) {
     console.error('❌ MongoDB save error:', err);

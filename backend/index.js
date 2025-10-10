@@ -10,7 +10,7 @@ const app = express();
 // ---- CORS Setup ----
 const allowedOrigins = [
   'http://localhost:4200',
-  'https://f5deed31b429.ngrok-free.app'
+  'https://7c2bd97f3eb5.ngrok-free.app'
 ];
 
 app.use(cors({
@@ -34,10 +34,7 @@ const PORT = process.env.PORT || 4000;
 const sessions = {};
 
 // ---- MongoDB Setup ----
-mongoose.connect('mongodb://127.0.0.1:27017/passkey-login', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect('mongodb://127.0.0.1:27017/passkey-login')
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
@@ -87,7 +84,8 @@ app.post('/api/passkey/session', async (req, res) => {
   sessions[sessionId] = {
     status: 'pending',
     createdAt: Date.now(),
-    userId: null
+    userId: null,
+    redirectTo: null
   };
 
   try {
@@ -122,17 +120,29 @@ app.get('/api/passkey/status/:sessionId', (req, res) => {
     console.log(`Session ${sessionId} expired.`);
   }
 
-  res.status(200).json({ status: session.status });
+  res.status(200).json({ status: session.status, redirectTo: session.redirectTo || null });
 });
 
 // ---- Confirm Session (POST) ----
 app.post('/api/passkey/confirm/:sessionId', async (req, res) => {
-  const session = sessions[req.params.sessionId];
+  const sessionId = req.params.sessionId;
+  const session = sessions[sessionId];
   const userId = req.body.userId;
 
-  if (!userId) return res.status(400).json({ error: 'Missing userId' });
-  if (!session) return res.status(404).json({ error: 'Session not found' });
-  if (session.status !== 'pending') return res.status(400).json({ error: 'Session already confirmed or expired' });
+  console.log(`POST /api/passkey/confirm/${sessionId} called with userId:`, userId);
+
+  if (!userId) {
+    console.warn('POST confirm missing userId');
+    return res.status(400).json({ error: 'Missing userId' });
+  }
+  if (!session) {
+    console.warn(`POST confirm session not found: ${sessionId}`);
+    return res.status(404).json({ error: 'Session not found' });
+  }
+  if (session.status !== 'pending') {
+    console.warn(`POST confirm session already confirmed or expired: ${sessionId}, status: ${session.status}`);
+    return res.status(400).json({ error: 'Session already confirmed or expired' });
+  }
 
   session.status = 'authenticated';
   session.userId = userId;
@@ -141,28 +151,43 @@ app.post('/api/passkey/confirm/:sessionId', async (req, res) => {
     const existingUser = await User.findOne({ userId });
     if (!existingUser) {
       await User.create({ userId });
+      session.redirectTo = '/email';
       console.log(`✅ User saved: ${userId}`);
-      return res.json({ success: true, redirectTo: '/email' });  // <-- UPDATED HERE
+      return res.json({ success: true, redirectTo: session.redirectTo });
     } else {
+      session.redirectTo = '/dashboard';
       console.log(`✅ Existing user confirmed: ${userId}`);
-      return res.json({ success: true, redirectTo: '/dashboard' });  // <-- UPDATED HERE
+      return res.json({ success: true, redirectTo: session.redirectTo });
     }
   } catch (err) {
     console.error('❌ MongoDB user save error:', err);
     return res.status(500).json({ error: 'Database error' });
   }
-
-  // No other changes below this line
 });
 
 // ---- Confirm Session (GET via QR) ----
 app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
-  const session = sessions[req.params.sessionId];
-  if (!session) return res.status(404).send('Session not found');
-  if (session.status !== 'pending') return res.status(400).send('Already confirmed or expired');
-
+  const sessionId = req.params.sessionId;
+  const session = sessions[sessionId];
   const userId = req.query.userId;
-  if (!userId) return res.status(400).send('Missing userId');
+
+  console.log(`GET /api/passkey/confirm/${sessionId} called with userId:`, userId);
+
+  if (!session) {
+    console.warn(`GET confirm session not found: ${sessionId}`);
+    return res.status(404).send('Session not found');
+  }
+  if (session.status !== 'pending') {
+    console.warn(`GET confirm session already confirmed or expired: ${sessionId}, status: ${session.status}`);
+    return res.status(400).send('Already confirmed or expired');
+  }
+  if (!userId) {
+    console.warn('GET confirm missing userId');
+    return res.status(400).send('Missing userId');
+  }
+
+  // ✅ DEBUG: Log before update
+  console.log('Session before update:', session);
 
   session.status = 'authenticated';
   session.userId = userId;
@@ -170,14 +195,16 @@ app.get('/api/passkey/confirm/:sessionId', async (req, res) => {
   try {
     const existingUser = await User.findOne({ userId });
     if (!existingUser) {
+      session.redirectTo = '/email';
       await User.create({ userId });
       console.log(`✅ New user registered: ${userId}`);
-      // Redirect new users to registration page
-      return res.redirect('https://9db7fac664ca.ngrok-free.app/email');
+      console.log('Session after update:', session); // ✅ DEBUG
+      return res.redirect('https://7c2bd97f3eb5.ngrok-free.app/email');
     } else {
+      session.redirectTo = '/dashboard';
       console.log(`✅ Existing user logged in: ${userId}`);
-      // Redirect existing users to dashboard
-      return res.redirect('https://9db7fac664ca.ngrok-free.app/dashboard');
+      console.log('Session after update:', session); // ✅ DEBUG
+      return res.redirect('https://7c2bd97f3eb5.ngrok-free.app/dashboard');
     }
   } catch (err) {
     console.error('❌ MongoDB save error:', err);

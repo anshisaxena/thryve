@@ -27,8 +27,8 @@ export class Login implements OnDestroy {
   pollingSub: Subscription | null = null;
 
   // Backend URLs
-  backendBase ='https://f5deed31b429.ngrok-free.app';
-  tunnelUrl = 'https://f5deed31b429.ngrok-free.app';
+  backendBase = 'https://7c2bd97f3eb5.ngrok-free.app';
+  tunnelUrl = 'https://7c2bd97f3eb5.ngrok-free.app';
 
   constructor(
     public router: Router,
@@ -89,38 +89,44 @@ export class Login implements OnDestroy {
   }
 
   /** Poll backend every 2s for session status */
-  startPolling() {
-    if (!this.sessionId) return;
+  /** Poll backend every 2s for session status */
+startPolling() {
+  if (!this.sessionId) return;
 
-    this.pollingSub?.unsubscribe();
-    this.pollingSub = interval(2000).subscribe(() => {
-      this.http.get<{ status: string }>(
-        `${this.backendBase}/api/passkey/status/${this.sessionId}`,
-        { withCredentials: true }
-      ).subscribe({
-        next: (resp) => {
-          console.log('📡 Polling status:', resp.status);
+  this.pollingSub?.unsubscribe();
+  this.pollingSub = interval(2000).subscribe(() => {
+    this.http.get<{ status: string; redirectTo?: string }>(
+      `${this.backendBase}/api/passkey/status/${this.sessionId}`,
+      { withCredentials: true }
+    ).subscribe({
+      next: (resp) => {
+        console.log('📡 Polling status:', resp.status);
 
-          if (resp.status === 'authenticated') {
-            this.pollingSub?.unsubscribe();
-            this.showPasskeyQRCode = false;
-
-            // User is authenticated, userId is stored in sessionStorage already
-            this.checkUserRedirect();
-          } else if (resp.status === 'expired') {
-            this.pollingSub?.unsubscribe();
-            this.showPasskeyQRCode = false;
-            alert('QR expired. Please try again.');
-          }
-        },
-        error: (err) => {
-          console.error('❌ Polling error', err);
+        if (resp.status === 'authenticated') {
           this.pollingSub?.unsubscribe();
-          alert('Error during polling. Please check backend and network.');
+          this.showPasskeyQRCode = false;
+
+          if (resp.redirectTo) {
+            // Navigate directly to backend-provided redirect path
+            this.router.navigate([resp.redirectTo]);
+          } else {
+            // Fallback to existing logic
+            this.checkUserRedirect();
+          }
+        } else if (resp.status === 'expired') {
+          this.pollingSub?.unsubscribe();
+          this.showPasskeyQRCode = false;
+          alert('QR expired. Please try again.');
         }
-      });
+      },
+      error: (err) => {
+        console.error('❌ Polling error', err);
+        this.pollingSub?.unsubscribe();
+        alert('Error during polling. Please check backend and network.');
+      }
     });
-  }
+  });
+}
 
   /** Check if user exists and redirect accordingly */
   checkUserRedirect() {
